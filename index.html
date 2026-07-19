@@ -53,32 +53,51 @@ const googleScriptUrl = "https://script.google.com/macros/s/AKfycbx5_rs27bp6iwlr
 if (!namnParam) {
     visaFel("Ingen sponsor identifierades i QR-koden.");
 } else {
-    // 3. Vi gör ett modernt fetch-anrop och blockerar ALLA cookies/konton från att skickas med
+    // 3. Gör anropet utan cookies för att undvika kontokrockar
     fetch(`${googleScriptUrl}?namn=${encodeURIComponent(namnParam)}`, {
         method: 'GET',
         mode: 'cors',
-        credentials: 'omit' // <--- HÄR ÄR MAGIN! Säger till webbläsaren att strunta i Google-kontona
+        credentials: 'omit'
     })
     .then(response => {
         if (!response.ok) {
             throw new Error('Nätverksfel eller spärr från Google');
         }
-        return response.json(); // Vi förväntar oss vanlig JSON nu
+        return response.json();
     })
     .then(data => {
-        console.log("Svar från Google mottaget:", data);
+        console.log("Svar från Google:", data);
         
-        // Gör skärmen grön
-        document.body.style.backgroundColor = "#e8f5e9";
         const statusBox = document.getElementById('statusVisual');
-        statusBox.className = "status-box green";
-        statusBox.innerText = "🟩 GODKÄND";
         
-        document.getElementById('infoText').innerHTML = `
-            <strong>Koppling fungerar!</strong><br>
-            Meddelande från Google:<br>
-            <span style="font-size: 16px; color: #2e7d32;">${data.meddelande}</span>
-        `;
+        // 4. Här kollar vi vad Google faktiskt beslutade!
+        if (data.status === "GRÖNT") {
+            // Incheckningen gick bra!
+            document.body.style.backgroundColor = "#e8f5e9"; // Ljusgrön
+            statusBox.className = "status-box green";
+            statusBox.innerText = "🟩 GODKÄND";
+            
+            document.getElementById('infoText').innerHTML = `
+                <strong>${data.foretag}</strong><br>
+                ${data.meddelande}<br>
+                <span style="font-size: 16px; display: inline-block; margin-top: 10px;">
+                    Besök registrerat: <strong>${data.aktuelltBesok}</strong> av ${data.maxAntal}
+                </span>
+            `;
+        } else {
+            // Företaget hittades inte ELLER kortet är förbrukat
+            document.body.style.backgroundColor = "#ffebee"; // Ljusröd
+            statusBox.className = "status-box red";
+            statusBox.innerText = "❌ NEKAD";
+            
+            document.getElementById('infoText').innerHTML = `
+                <strong>${data.foretag}</strong><br>
+                <span style="color: #c62828; font-weight: bold;">${data.meddelande}</span><br>
+                <span style="font-size: 14px; display: inline-block; margin-top: 10px;">
+                    Totalt använda besök: ${data.aktuelltBesok} av ${data.maxAntal}
+                </span>
+            `;
+        }
     })
     .catch(error => {
         console.error("Fel vid anrop:", error);
