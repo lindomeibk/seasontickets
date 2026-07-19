@@ -50,38 +50,40 @@ const namnParam = urlParams.get('namn');
 // 2. DIN WEBAPP-LÄNK FRÅN GOOGLE:
 const googleScriptUrl = "https://script.google.com/macros/s/AKfycbzJSkjBo13U4F9kOlEZp2gbvcPvSU-Oq7y714hBQmn40ww3croTU07Jlq6qYEGtcgr3Pw/exec";
 
-// 3. Denna funktion MÅSTE finnas globalt så att Google kan ropa av den
-window.googleCallback = function(data) {
-    // Om vi kommer hit har CORB och alla spärrar passerats!
-    console.log("Svar från Google mottaget:", data);
-    
-    document.body.style.backgroundColor = "#e8f5e9";
-    const statusBox = document.getElementById('statusVisual');
-    statusBox.className = "status-box green";
-    statusBox.innerText = "🟩 GODKÄND";
-    
-    document.getElementById('infoText').innerHTML = `
-        <strong>Koppling fungerar!</strong><br>
-        Meddelande från Google:<br>
-        <span style="font-size: 16px; color: #2e7d32;">${data.meddelande}</span>
-    `;
-};
-
 if (!namnParam) {
     visaFel("Ingen sponsor identifierades i QR-koden.");
 } else {
-    // 4. Vi bygger ett helt eget, rent script-anrop för JSONP
-    const script = document.createElement('script');
-    
-    // Vi hårdkodar &callback=googleCallback så att det matchar funktionen ovan exakt
-    script.src = `${googleScriptUrl}?namn=${encodeURIComponent(namnParam)}&callback=googleCallback`;
-    
-    script.onerror = function() {
+    // 3. Vi gör ett modernt fetch-anrop och blockerar ALLA cookies/konton från att skickas med
+    fetch(`${googleScriptUrl}?namn=${encodeURIComponent(namnParam)}`, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit' // <--- HÄR ÄR MAGIN! Säger till webbläsaren att strunta i Google-kontona
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Nätverksfel eller spärr från Google');
+        }
+        return response.json(); // Vi förväntar oss vanlig JSON nu
+    })
+    .then(data => {
+        console.log("Svar från Google mottaget:", data);
+        
+        // Gör skärmen grön
+        document.body.style.backgroundColor = "#e8f5e9";
+        const statusBox = document.getElementById('statusVisual');
+        statusBox.className = "status-box green";
+        statusBox.innerText = "🟩 GODKÄND";
+        
+        document.getElementById('infoText').innerHTML = `
+            <strong>Koppling fungerar!</strong><br>
+            Meddelande från Google:<br>
+            <span style="font-size: 16px; color: #2e7d32;">${data.meddelande}</span>
+        `;
+    })
+    .catch(error => {
+        console.error("Fel vid anrop:", error);
         visaFel("Systemfel: Kunde inte kontakta databasen (Scriptfel).");
-    };
-    
-    // Lägg till skriptet på sidan för att avfyra anropet
-    document.body.appendChild(script);
+    });
 }
 
 function visaFel(meddelande) {
