@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incheckning Sponsorer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding-top: 50px;
+            margin: 0;
+            background-color: #f0f0f0;
+            transition: background-color 0.5s ease;
+        }
+        .container {
+            padding: 20px;
+            background: white;
+            margin: 20px auto;
+            max-width: 400px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .status-box {
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .loading { background-color: #ffa500; }
+        .green { background-color: #4CAF50; }
+        .red { background-color: #f44336; }
+        .info { font-size: 18px; color: #333; line-height: 1.6; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="statusVisual" class="status-box loading">⏳ LADDAR...</div>
+        <div id="infoText" class="info">Kontrollerar sponsorkort, vänta en sekund...</div>
+    </div>
+
+    <script>
+        // 1. Hämta namnet från URL-parametern (?namn=Företag_A)
+        const urlParams = new URLSearchParams(window.location.search);
+        const namnParam = urlParams.get('namn');
+
+        // 2. KLISTRA IN DIN WEBAPP-LÄNK FRÅN GOOGLE HÄR:
+        const googleScriptUrl = "https://script.google.com/macros/s/AKfycbyH59bxgoZXUOa4TuYA3PNssPvmMbWwclLCmvTP4UV_FLzm4aSNy62u-ohXigcKu9cZpQ/exec";
+
+        if (!namnParam) {
+            document.getElementById('statusVisual').className = "status-box red";
+            document.getElementById('statusVisual').innerText = "❌ FEL";
+            document.getElementById('infoText').innerText = "Ingen sponsor identifierades i QR-koden.";
+        } else {
+            // 3. Skicka ett dolt bakgrundsanrop till Google Sheets
+            fetch(`${googleScriptUrl}?namn=${encodeURIComponent(namnParam)}`)
+            .then(response => response.json()) // Vi förväntar oss ett JSON-svar tillbaka
+            .then(data => {
+                
+                const statusBox = document.getElementById('statusVisual');
+                const infoBox = document.getElementById('infoText');
+
+                if (data.status === "GRÖNT") {
+                    document.body.style.backgroundColor = "#e8f5e9"; // Ljusgrön bakgrund på hela skärmen
+                    statusBox.className = "status-box green";
+                    statusBox.innerText = "🟩 GODKÄND";
+                    infoBox.innerHTML = `<strong>${data.foretag}</strong><br>Besök ${data.aktuelltBesok} av ${data.maxAntal}`;
+                } else {
+                    document.body.style.backgroundColor = "#ffebee"; // Ljusröd bakgrund
+                    statusBox.className = "status-box red";
+                    statusBox.innerText = "🟥 NEKAD";
+                    infoBox.innerHTML = `<strong>${data.foretag}</strong><br>${data.meddelande || 'Max antal besök nått!'}<br>(Försök nr: ${data.aktuelltBesok} av ${data.maxAntal})`;
+                }
+            })
+            .catch(error => {
+                document.getElementById('statusVisual').className = "status-box red";
+                document.getElementById('statusVisual').innerText = "❌ SYSTEMFEL";
+                document.getElementById('infoText').innerText = "Kunde inte kontakta databasen. Prova igen eller kontrollera internetanslutningen.";
+                console.error("Fel:", error);
+            });
+        }
+    </script>
+</body>
+</html>
