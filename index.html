@@ -56,7 +56,7 @@
             document.getElementById('infoText').innerText = "Ingen sponsor identifierades i QR-koden.";
         } else {
             // 3. Skicka ett dolt bakgrundsanrop till Google Sheets
-            fetch(`${googleScriptUrl}?namn=${encodeURIComponent(namnParam)}`)
+            fetch(`${googleScriptUrl}?namn=${encodeURIComponent(namnParam)}`, { redirect: "follow" })
             .then(response => response.json()) // Vi förväntar oss ett JSON-svar tillbaka
             .then(data => {
                 
