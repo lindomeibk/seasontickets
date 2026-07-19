@@ -43,52 +43,50 @@
     </div>
 
     <script>
-// 1. Hämta namnet från URL-parametern
+// 1. Hämta namnet från webbadressen
 const urlParams = new URLSearchParams(window.location.search);
 const namnParam = urlParams.get('namn');
 
-// 2. KLISTRA IN DIN NYA WEBAPP-LÄNK FRÅN GOOGLE HÄR:
+// 2. DIN WEBAPP-LÄNK FRÅN GOOGLE:
 const googleScriptUrl = "https://script.google.com/macros/s/AKfycbyQGaMkRmz3Vc7ctp0XCCPLQ94xEBj86AYvbb5DZPg66jyuD0TV3Yv6BJZ8Szwy8pNaDA/exec";
+
+// 3. Denna funktion MÅSTE finnas globalt så att Google kan ropa av den
+window.googleCallback = function(data) {
+    // Om vi kommer hit har CORB och alla spärrar passerats!
+    console.log("Svar från Google mottaget:", data);
+    
+    document.body.style.backgroundColor = "#e8f5e9";
+    const statusBox = document.getElementById('statusVisual');
+    statusBox.className = "status-box green";
+    statusBox.innerText = "🟩 GODKÄND";
+    
+    document.getElementById('infoText').innerHTML = `
+        <strong>Koppling fungerar!</strong><br>
+        Meddelande från Google:<br>
+        <span style="font-size: 16px; color: #2e7d32;">${data.meddelande}</span>
+    `;
+};
 
 if (!namnParam) {
     visaFel("Ingen sponsor identifierades i QR-koden.");
 } else {
-    // 3. Skapa ett JSONP-anrop för att runda säkerhetsblockeringen (CORS)
-    const callbackName = 'googleCallback_' + Math.round(Math.random() * 1000000);
-    
-    // Skapa funktionen som Google ska ropa på när den är klar
-    window[callbackName] = function(data) {
-        // Städa bort scriptet efteråt
-        delete window[callbackName];
-        
-        const statusBox = document.getElementById('statusVisual');
-        const infoBox = document.getElementById('infoText');
-
-        if (data.status === "GRÖNT") {
-            document.body.style.backgroundColor = "#e8f5e9";
-            statusBox.className = "status-box green";
-            statusBox.innerText = "🟩 GODKÄND";
-            infoBox.innerHTML = `<strong>${data.foretag}</strong><br>Besök ${data.aktuelltBesok} av ${data.maxAntal}`;
-        } else {
-            document.body.style.backgroundColor = "#ffebee";
-            statusBox.className = "status-box red";
-            statusBox.innerText = "🟥 NEKAD";
-            infoBox.innerHTML = `<strong>${data.foretag}</strong><br>${data.meddelande || 'Max antal besök nått!'}<br>(Försök nr: ${data.aktuelltBesok} av ${data.maxAntal})`;
-        }
-    };
-
-    // Skapa en osynlig länk som startar anropet
+    // 4. Vi bygger ett helt eget, rent script-anrop för JSONP
     const script = document.createElement('script');
-    script.src = `${googleScriptUrl}?namn=${encodeURIComponent(namnParam)}&callback=${callbackName}`;
+    
+    // Vi hårdkodar &callback=googleCallback så att det matchar funktionen ovan exakt
+    script.src = `${googleScriptUrl}?namn=${encodeURIComponent(namnParam)}&callback=googleCallback`;
+    
     script.onerror = function() {
-        visaFel("Kunde inte kontakta databasen (Scriptfel).");
+        visaFel("Systemfel: Kunde inte kontakta databasen (Scriptfel).");
     };
+    
+    // Lägg till skriptet på sidan för att avfyra anropet
     document.body.appendChild(script);
 }
 
 function visaFel(meddelande) {
     document.getElementById('statusVisual').className = "status-box red";
-    document.getElementById('statusVisual').innerText = "❌ SYSTEMFEL";
+    document.getElementById('statusVisual').innerText = "❌ FEL";
     document.getElementById('infoText').innerText = meddelande;
 }
     </script>
