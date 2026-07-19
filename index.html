@@ -43,57 +43,54 @@
     </div>
 
     <script>
-        // 1. Hämta namnet från URL-parametern (?namn=Företag_A)
-        const urlParams = new URLSearchParams(window.location.search);
-        const namnParam = urlParams.get('namn');
+// 1. Hämta namnet från URL-parametern
+const urlParams = new URLSearchParams(window.location.search);
+const namnParam = urlParams.get('namn');
 
-        // 2. KLISTRA IN DIN WEBAPP-LÄNK FRÅN GOOGLE HÄR:
-        const googleScriptUrl = "https://script.google.com/macros/s/AKfycbwDbM77aenKGWLV-KlIDxD2YGTAjaHUNVSd1sxLHxA3gKDgonFUAz4CljguPsOQdqqdLQ/exec";
-        if (!namnParam) {
-            document.getElementById('statusVisual').className = "status-box red";
-            document.getElementById('statusVisual').innerText = "❌ FEL";
-            document.getElementById('infoText').innerText = "Ingen sponsor identifierades i QR-koden.";
+// 2. KLISTRA IN DIN NYA WEBAPP-LÄNK FRÅN GOOGLE HÄR:
+const googleScriptUrl = "https://script.google.com/macros/s/AKfycbxtB6L-PZFn3lUJJrpDe95-UL9ZIBnTIgboxF8Kncc-IR9-zPLUK5xGsTd2ds7ex1KIwg/exec";
+
+if (!namnParam) {
+    visaFel("Ingen sponsor identifierades i QR-koden.");
+} else {
+    // 3. Skapa ett JSONP-anrop för att runda säkerhetsblockeringen (CORS)
+    const callbackName = 'googleCallback_' + Math.round(Math.random() * 1000000);
+    
+    // Skapa funktionen som Google ska ropa på när den är klar
+    window[callbackName] = function(data) {
+        // Städa bort scriptet efteråt
+        delete window[callbackName];
+        
+        const statusBox = document.getElementById('statusVisual');
+        const infoBox = document.getElementById('infoText');
+
+        if (data.status === "GRÖNT") {
+            document.body.style.backgroundColor = "#e8f5e9";
+            statusBox.className = "status-box green";
+            statusBox.innerText = "🟩 GODKÄND";
+            infoBox.innerHTML = `<strong>${data.foretag}</strong><br>Besök ${data.aktuelltBesok} av ${data.maxAntal}`;
         } else {
-            // 3. Skicka ett dolt bakgrundsanrop till Google Sheets
-            fetch(`${googleScriptUrl}?namn=${encodeURIComponent(namnParam)}`, { redirect: "follow" })
-            .then(response => response.json()) // Vi förväntar oss ett JSON-svar tillbaka
-            .then(data => {
-                
-                const statusBox = document.getElementById('statusVisual');
-                const infoBox = document.getElementById('infoText');
+            document.body.style.backgroundColor = "#ffebee";
+            statusBox.className = "status-box red";
+            statusBox.innerText = "🟥 NEKAD";
+            infoBox.innerHTML = `<strong>${data.foretag}</strong><br>${data.meddelande || 'Max antal besök nått!'}<br>(Försök nr: ${data.aktuelltBesok} av ${data.maxAntal})`;
+        }
+    };
 
-                if (data.status === "GRÖNT") {
-                    document.body.style.backgroundColor = "#e8f5e9"; // Ljusgrön bakgrund på hela skärmen
-                    statusBox.className = "status-box green";
-                    statusBox.innerText = "🟩 GODKÄND";
-                    infoBox.innerHTML = `<strong>${data.foretag}</strong><br>Besök ${data.aktuelltBesok} av ${data.maxAntal}`;
-                } else {
-                    document.body.style.backgroundColor = "#ffebee"; // Ljusröd bakgrund
-                    statusBox.className = "status-box red";
-                    statusBox.innerText = "🟥 NEKAD";
-                    infoBox.innerHTML = `<strong>${data.foretag}</strong><br>${data.meddelande || 'Max antal besök nått!'}<br>(Försök nr: ${data.aktuelltBesok} av ${data.maxAntal})`;
-                }
-            })
-           .catch(error => {
-                document.getElementById('statusVisual').className = "status-box red";
-                document.getElementById('statusVisual').innerText = "❌ DETALJERAT FEL";
-                
-                // Denna rad skriver ut det exakta tekniska felet på skärmen:
-                document.getElementById('infoText').innerHTML = `
-                    <p>Kunde inte kontakta databasen.</p>
-                    <div style="background: #fee; color: #b71c1c; padding: 10px; border-radius: 5px; font-family: monospace; text-align: left; word-break: break-all; font-size: 14px;">
-                        <strong>Felmeddelande:</strong> ${error.message || error}<br><br>
-                        <em>Tips: Om det står "Failed to fetch" beror det oftast på att Google Script-länken är felaktig, inte är driftsatt som en "Ny version", eller blockeras av webbläsarens säkerhetsinställningar (CORS).</em>
-                    </div>
-                `;
-                console.error("Fel:", error);
-            });
-//            .catch(error => {
-//                document.getElementById('statusVisual').className = "status-box red";
-//                document.getElementById('statusVisual').innerText = "❌ SYSTEMFEL";
-//                document.getElementById('infoText').innerText = "Kunde inte kontakta databasen. Prova igen eller kontrollera internetanslutningen.";
-//                console.error("Fel:", error);
-//            });
+    // Skapa en osynlig länk som startar anropet
+    const script = document.createElement('script');
+    script.src = `${googleScriptUrl}?namn=${encodeURIComponent(namnParam)}&callback=${callbackName}`;
+    script.onerror = function() {
+        visaFel("Kunde inte kontakta databasen (Scriptfel).");
+    };
+    document.body.appendChild(script);
+}
+
+function visaFel(meddelande) {
+    document.getElementById('statusVisual').className = "status-box red";
+    document.getElementById('statusVisual').innerText = "❌ SYSTEMFEL";
+    document.getElementById('infoText').innerText = meddelande;
+}
         }
     </script>
 </body>
